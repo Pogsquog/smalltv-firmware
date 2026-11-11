@@ -54,7 +54,7 @@ pio run                              # build .pio/build/smalltv/firmware.bin
 | Key | What it does |
 |---|---|
 | `WIFI_SSID`, `WIFI_PASS` | Network to join when the stored credentials don't work, so a freshly flashed device can join without the setup hotspot |
-| `OTA_PASS` | Password for `/update` (user `admin`). Export it in your shell too, so the upload script can log in |
+| `OTA_PASS` | Password for `/update`, **Reboot** and **Forget WiFi** (user `admin`). Export it in your shell too, so the upload script can log in. Without it, anyone on your network can flash the device, and the build warns |
 | `CLOCK_TZ` | [POSIX TZ string](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv); defaults to `GMT0BST,M3.5.0/1,M10.5.0` (UK) |
 
 `scripts/secrets.py` turns these into a generated header in the build folder,
@@ -96,7 +96,9 @@ An upload takes about 2 minutes, then the device reboots into the new image.
   again, so a router outage doesn't leave it stuck in setup.
 - **Device page:** `http://smalltv/` (or `http://smalltv.local/`) shows the
   firmware version, time, uptime, network, signal, free memory and last reset
-  reason, with **Reboot** and **Forget WiFi** buttons. **Forget WiFi** erases the
+  reason, with **Reboot** and **Forget WiFi** buttons. Those buttons and
+  firmware uploads ask for the `OTA_PASS` login, and requests sent from other
+  websites are refused. **Forget WiFi** erases the
   saved network and reboots into the setup hotspot. If `WIFI_SSID` was compiled
   in, the device rejoins that network instead.
 - **JSON status:** `http://smalltv/api/status`.

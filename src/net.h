@@ -11,5 +11,7 @@ void netBegin();
 // Call every loop iteration.
 void netLoop();
 bool netConnected();
+// True once NTP has set the clock.
+bool timeValid();
 // Short status line for the clock footer, e.g. "192.168.1.50  -57dBm".
 void netStatusLine(char* buf, size_t len);

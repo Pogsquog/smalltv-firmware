@@ -2,12 +2,14 @@
 # Upload a firmware image to the device's /update endpoint.
 #   ota-upload.sh <firmware.bin> [host]      (host defaults to "smalltv")
 # Set OTA_PASS in the environment if the image on the device was built with one.
+# Basic auth is sent up front: with digest, curl would send the whole image once
+# without credentials to get the challenge, doubling the ~2 minute upload.
 # On WSL, uses Windows' curl.exe: WSL2 often can't resolve LAN hostnames.
 set -euo pipefail
 bin="$1"
 host="${2:-smalltv}"
 auth=()
-[ -n "${OTA_PASS:-}" ] && auth=(--anyauth -u "admin:${OTA_PASS}")
+[ -n "${OTA_PASS:-}" ] && auth=(-u "admin:${OTA_PASS}")
 
 curl_cmd=(curl)
 if grep -qi microsoft /proc/version 2>/dev/null && [ -x /mnt/c/Windows/System32/curl.exe ]; then

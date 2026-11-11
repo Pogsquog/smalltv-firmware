@@ -12,8 +12,6 @@
 #endif
 #define BRIGHTNESS_PCT 90
 
-static bool timeValid() { return time(nullptr) > 1609459200; }   // after 2021-01-01
-
 void setup() {
   Serial.begin(115200);
   Serial.printf("\nSmallTV firmware %s\n", FW_VERSION);

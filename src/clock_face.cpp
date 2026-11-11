@@ -91,7 +91,7 @@ void clockFaceDraw(const struct tm& t, const char* footer) {
   }
 
   // Seconds bar fills across the minute; only the changed slice is painted.
-  const int px = BAR_W * t.tm_sec / 59;
+  const int px = BAR_W * (t.tm_sec > 59 ? 59 : t.tm_sec) / 59;   // tm_sec is 60 on a leap second
   if (px != s_barPx) {
     if (px < s_barPx || s_barPx < 0) {
       gfx->fillRect(BAR_X, BAR_Y, BAR_W, BAR_H, C_DKGRAY);
