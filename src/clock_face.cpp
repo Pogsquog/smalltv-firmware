@@ -9,6 +9,11 @@ static const int DIGIT_X[4] = {8, 60, 134, 186};
 static const int COLON_X = 120;                 // centre
 static const int BAR_Y = DIGIT_Y + DIGIT_H + 12, BAR_H = 4, BAR_X = 8, BAR_W = TFT_W - 16;
 static const int DAY_Y = 20, DATE_Y = 184, FOOTER_Y = 228;
+// Usage table, in the date's place: captions, then a row each for Claude and Copilot.
+static const int INFO_Y = BAR_Y + BAR_H + 2, INFO_H = FOOTER_Y - 2 - INFO_Y;
+static const int CAP_Y = 176, ROW1_Y = 187, ROW2_Y = 207;
+static const int LABEL_X = 8, TODAY_R = 160, MONTH_R = 232;   // right edges of the number columns
+static const uint16_t C_CLAUDE = C_ORANGE, C_COPILOT = 0xA41F;  // light purple
 
 static const uint16_t C_DIGIT = C_WHITE;
 static const uint16_t C_ACCENT = C_CYAN;
@@ -56,6 +61,7 @@ static int  s_digits[4];
 static int  s_colon;
 static int  s_barPx;
 static int  s_yday;
+static long s_infoKey;   // what the date/usage area shows; see clockFaceDraw
 static char s_footer[48];
 
 void clockFaceInvalidate() {
@@ -63,6 +69,7 @@ void clockFaceInvalidate() {
   s_colon = -1;
   s_barPx = -1;
   s_yday = -1;
+  s_infoKey = -1;
   s_footer[0] = '\x01';  // never equal to a real footer
   s_footer[1] = 0;
   gfx->fillScreen(C_BLACK);
@@ -73,7 +80,56 @@ static const char* const kDays[] = {"SUNDAY", "MONDAY", "TUESDAY", "WEDNESDAY",
 static const char* const kMonths[] = {"JAN", "FEB", "MAR", "APR", "MAY", "JUN",
                                       "JUL", "AUG", "SEP", "OCT", "NOV", "DEC"};
 
-void clockFaceDraw(const struct tm& t, const char* footer) {
+// $ amounts in at most 5 characters: $4.21  $42.1  $421  $4210  $42k
+static void fmtUsd(char* b, size_t n, float v) {
+  if (v < 9.995f)        snprintf(b, n, "$%.2f", v);
+  else if (v < 99.95f)   snprintf(b, n, "$%.1f", v);
+  else if (v < 9999.5f)  snprintf(b, n, "$%.0f", v);
+  else                   snprintf(b, n, "$%.0fk", v / 1000);
+}
+
+// Counts: 3  2.5  412  1.2k
+static void fmtCount(char* b, size_t n, float v) {
+  if (v < 9.95f && v != (int)v) snprintf(b, n, "%.1f", v);
+  else if (v < 999.5f)          snprintf(b, n, "%.0f", v);
+  else                          snprintf(b, n, "%.1fk", v / 1000);
+}
+
+static void drawRight(const char* s, int right, int y, uint8_t size, uint16_t fg) {
+  gfx->setTextSize(size);
+  gfx->setTextColor(fg, C_BLACK);
+  gfx->setCursor(right - textWidth(s, size), y);
+  gfx->print(s);
+}
+
+static void drawUsageRow(int y, const char* label, uint16_t labelColor, const char* today, const char* month) {
+  gfx->setTextSize(2);
+  gfx->setTextColor(labelColor, C_BLACK);
+  gfx->setCursor(LABEL_X, y);
+  gfx->print(label);
+  drawRight(today, TODAY_R, y, 2, C_WHITE);
+  drawRight(month, MONTH_R, y, 2, C_GRAY);
+}
+
+static void drawUsage(const Usage& u) {
+  char today[12], month[12];
+  drawRight("TODAY", TODAY_R, CAP_Y, 1, C_GRAY);
+  drawRight("MONTH", MONTH_R, CAP_Y, 1, C_GRAY);
+
+  if (u.claudeToday > 0) fmtUsd(today, sizeof(today), u.claudeToday); else strcpy(today, "-");
+  fmtUsd(month, sizeof(month), u.claudeMonth);
+  drawUsageRow(ROW1_Y, "CLAUDE", C_CLAUDE, today, month);
+
+  // Premium requests are the familiar unit; fall back to AI credits if the
+  // Copilot plan only reports those.
+  const bool req = u.reqMonth > 0 || u.creditsMonth <= 0;
+  const float vt = req ? u.reqToday : u.creditsToday, vm = req ? u.reqMonth : u.creditsMonth;
+  if (vt > 0) fmtCount(today, sizeof(today), vt); else strcpy(today, "-");
+  fmtCount(month, sizeof(month), vm);
+  drawUsageRow(ROW2_Y, req ? "COPILOT" : "COP CR", C_COPILOT, today, month);
+}
+
+void clockFaceDraw(const struct tm& t, const char* footer, const Usage* usage) {
   // Digits: redraw only the ones that changed.
   const int now[4] = {t.tm_hour / 10, t.tm_hour % 10, t.tm_min / 10, t.tm_min % 10};
   for (int i = 0; i < 4; i++) {
@@ -101,15 +157,31 @@ void clockFaceDraw(const struct tm& t, const char* footer) {
     s_barPx = px;
   }
 
-  // Day name and date, once a day.
-  if (t.tm_yday != s_yday) {
+  // Day name, once a day.
+  const bool newDay = t.tm_yday != s_yday;
+  if (newDay) {
     s_yday = t.tm_yday;
     gfx->fillRect(0, DAY_Y, TFT_W, 24, C_BLACK);
     drawCentered(kDays[t.tm_wday % 7], DAY_Y, 3, C_ACCENT);
-    char date[24];
-    snprintf(date, sizeof(date), "%d %s %d", t.tm_mday, kMonths[t.tm_mon % 12], 1900 + t.tm_year);
-    gfx->fillRect(0, DATE_Y, TFT_W, 24, C_BLACK);
-    drawCentered(date, DATE_Y, 3, C_WHITE);
+  }
+
+  // Below the bar: today's AI usage if there has been any, else the date.
+  // Usage only counts if the hub's "today" is our today (it may lag at midnight).
+  char ymd[11];
+  snprintf(ymd, sizeof(ymd), "%04d-%02d-%02d", 1900 + t.tm_year, t.tm_mon + 1, t.tm_mday);
+  const bool showUsage = usage && strcmp(usage->day, ymd) == 0 &&
+                         (usage->claudeToday > 0 || usage->reqToday > 0 || usage->creditsToday > 0);
+  const long key = showUsage ? (long)(usage->seq & 0x3FFFFFFF) : -2;
+  if (newDay || key != s_infoKey) {
+    s_infoKey = key;
+    gfx->fillRect(0, INFO_Y, TFT_W, INFO_H, C_BLACK);
+    if (showUsage) {
+      drawUsage(*usage);
+    } else {
+      char date[24];
+      snprintf(date, sizeof(date), "%d %s %d", t.tm_mday, kMonths[t.tm_mon % 12], 1900 + t.tm_year);
+      drawCentered(date, DATE_Y, 3, C_WHITE);
+    }
   }
 
   // Footer (IP / WiFi state), when it changes.

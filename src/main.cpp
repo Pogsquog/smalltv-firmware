@@ -6,6 +6,7 @@
 #include "display.h"
 #include "net.h"
 #include "clock_face.h"
+#include "usage.h"
 
 #ifndef CLOCK_TZ
 #define CLOCK_TZ "GMT0BST,M3.5.0/1,M10.5.0"   // UK; see e.g. github.com/nayarsystems/posix_tz_db
@@ -28,6 +29,7 @@ void setup() {
 
 void loop() {
   netLoop();
+  if (timeValid()) usageLoop();
 
   static bool     faceShown = false;
   static uint32_t lastDraw = 0;
@@ -44,5 +46,5 @@ void loop() {
   localtime_r(&now, &t);
   char footer[48];
   netStatusLine(footer, sizeof(footer));
-  clockFaceDraw(t, footer);
+  clockFaceDraw(t, footer, usageGet());
 }

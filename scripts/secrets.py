@@ -4,6 +4,7 @@
 #   WIFI_SSID / WIFI_PASS  - network to join when stored credentials don't work
 #   OTA_PASS               - password protecting /update (user "admin")
 #   CLOCK_TZ               - POSIX TZ string (default: UK time)
+#   USAGE_URL              - AI usage hub, e.g. http://192.168.1.105:8787/api/usage.txt
 Import("env")
 import os
 
@@ -22,7 +23,7 @@ def c_string(v):
     return '"' + "".join(out) + '"'
 
 
-KEYS = ("WIFI_SSID", "WIFI_PASS", "OTA_PASS", "CLOCK_TZ")
+KEYS = ("WIFI_SSID", "WIFI_PASS", "OTA_PASS", "CLOCK_TZ", "USAGE_URL")
 
 values = {}
 path = os.path.join(env.subst("$PROJECT_DIR"), "secrets.env")

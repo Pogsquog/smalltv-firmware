@@ -1,0 +1,18 @@
+# systemd *user* unit for agent.py on a PC (WSL with systemd enabled, or Linux).
+# Install:
+#   mkdir -p ~/.local/share/usage-agent ~/.config/systemd/user
+#   cp agent.py ~/.local/share/usage-agent/
+#   cp usage-agent.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload && systemctl --user enable --now usage-agent
+[Unit]
+Description=Push AI usage totals to the SmallTV usage hub
+
+[Service]
+Environment=PYTHONUNBUFFERED=1
+#Environment=USAGE_TOKEN=change-me
+ExecStart=/usr/bin/python3 %h/.local/share/usage-agent/agent.py --hub http://192.168.1.105:8787 --loop 300
+Restart=always
+RestartSec=60
+
+[Install]
+WantedBy=default.target

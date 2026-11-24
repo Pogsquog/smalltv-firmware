@@ -18,6 +18,9 @@ What it does today:
 - **WiFi setup**: no credentials in the code. The device tries the network it
   last joined, then an optional network set at build time, then opens a
   `SmallTV-Setup` hotspot with a captive portal where you pick your network.
+- **AI usage**: optionally shows today's and this month's Claude Code spend and
+  Copilot premium requests in place of the date, from a small hub on your LAN
+  fed by a script on each PC. See [usage/README.md](usage/README.md).
 - **Updates over WiFi**: upload a new firmware image from the browser at
   `http://smalltv/update`, or straight from PlatformIO with
   `pio run -t upload`.
@@ -55,6 +58,7 @@ pio run                              # build .pio/build/smalltv/firmware.bin
 |---|---|
 | `WIFI_SSID`, `WIFI_PASS` | Network to join when the stored credentials don't work, so a freshly flashed device can join without the setup hotspot |
 | `OTA_PASS` | Password for `/update`, **Reboot** and **Forget WiFi** (user `admin`). Export it in your shell too, so the upload script can log in. Without it, anyone on your network can flash the device, and the build warns |
+| `USAGE_URL` | AI usage hub, e.g. `http://192.168.1.105:8787/api/usage.txt`; see [usage/README.md](usage/README.md) |
 | `CLOCK_TZ` | [POSIX TZ string](https://github.com/nayarsystems/posix_tz_db/blob/master/zones.csv); defaults to `GMT0BST,M3.5.0/1,M10.5.0` (UK) |
 
 `scripts/secrets.py` turns these into a generated header in the build folder,
@@ -120,10 +124,12 @@ An upload takes about 2 minutes, then the device reboots into the new image.
 | `src/board.h` | pins and panel geometry |
 | `src/display.*` | ST7789 setup (incl. the SPI mode 3 fix), backlight, text helpers, status screens |
 | `src/clock_face.*` | the clock screen; redraws only what changed, so nothing flickers |
+| `src/usage.*` | polls the AI usage hub once a minute |
 | `src/net.*` | WiFi, setup portal, mDNS, web server, OTA endpoint |
 | `src/main.cpp` | boot sequence and main loop |
 | `scripts/secrets.py` | generates `build_secrets.h` from `secrets.env` / the environment |
 | `scripts/ota-upload.sh` | the `pio run -t upload` uploader |
+| `usage/` | AI usage agent (per PC) and hub (Raspberry Pi) |
 
 Build notes:
 

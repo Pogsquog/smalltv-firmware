@@ -1,0 +1,20 @@
+# systemd unit for hub.py on the Raspberry Pi. Install:
+#   mkdir -p ~/usage-hub && cp hub.py ~/usage-hub/
+#   sudo cp usage-hub.service /etc/systemd/system/   (edit User/paths first)
+#   sudo systemctl enable --now usage-hub
+[Unit]
+Description=AI usage hub for the SmallTV
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=stuart
+WorkingDirectory=/home/stuart/usage-hub
+# Optional: require this token on reports (set the same USAGE_TOKEN for agent.py).
+#Environment=USAGE_TOKEN=change-me
+ExecStart=/usr/bin/python3 /home/stuart/usage-hub/hub.py --port 8787 --data /home/stuart/usage-hub/usage.json
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,2 +1,4 @@
 .pio/
 secrets.env
+usage/usage.json
+__pycache__/
